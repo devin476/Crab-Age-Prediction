@@ -12,7 +12,7 @@ CrabTrain <- read.csv("Data/train-1.csv")
 #EDA
 #Select numerical variables
 features <- CrabTrain %>% 
-  select(where(is.numeric)) %>%
+  select(where(is.numeric), -id) %>%
   colnames()
 
 #correlation
