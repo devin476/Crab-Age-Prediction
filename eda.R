@@ -85,7 +85,26 @@ sst <- sum((actual_ages - mean(actual_ages))^2)
 sse <- sum((predicted_ages - actual_ages)^2)
 r_squared <- 1 - (sse / sst)
 
-#Print
+#Results
 cat("RMSE:",rmse, "\n")
 cat("MAE:",mae, "\n")
 cat("R-squared:",r_squared, "\n")
+
+#Linear Regression Model
+lm_model <- lm(Age ~ Shell.Weight + Height + Diameter + Length + Weight, data = train_data)
+
+#Predict
+lm_pred <- predict(lm_model, newdata = test_data)
+
+#Evaluation 
+lm_rmse <- sqrt(mean((lm_pred - test_y)^2))
+lm_mae <- mean(abs(lm_pred - test_y))
+lm_sst <- sum((test_y - mean(test_y))^2)
+lm_sse <- sum((lm_pred - test_y)^2)
+lm_r_squared <- 1 - (lm_sse / lm_sst)
+
+#Results
+cat("RMSE:",lm_rmse, "\n")
+cat("MAE:",lm_mae, "\n")
+cat("R-squared:",lm_r_squared, "\n")
+
