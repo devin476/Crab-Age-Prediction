@@ -1,110 +1,152 @@
-library(tidyverse)
-library(class)
+library(shiny)
+library(ggplot2)
+library(dplyr)
+library(DT)
+library(shinythemes)
+library(shinyWidgets)
 library(caret)
-library(FNN)
 
-#Load
-CrabTrain <- read.csv("Data/train-1.csv")
-
-#EDA
-#Select numerical variables
-features <- CrabTrain %>% 
-  select(where(is.numeric), -id) %>%
-  colnames()
-
-#correlation
-cor_results <- data.frame(
-  Feature = character(),
-  Correlation = numeric()
+ui <- fluidPage(
+  theme = shinytheme("darkly"),
+  #Font Correction (to work with Dark Theme)
+  tags$head(
+    tags$style(HTML("
+    .dataTables_wrapper {
+      color: #ffffff;
+    }
+    table.dataTable {
+      color: #ffffff !important;
+    }
+    table.dataTable td, table.dataTable th {
+      color: #ffffff !important;
+    }
+    .dataTables_filter input {
+      color: #ffffff;
+      background-color: #2c2c2c;
+    }
+    .dataTables_length select {
+      color: #ffffff;
+      background-color: #2c2c2c;
+    }
+  "))
+  ),
+  titlePanel( title = div(icon("chart-line"), "Crab Measurement Comparison Against Age 🦀"),
+              windowTitle = "Crab App"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      pickerInput("xvar", "Select variable to compare with Age:",
+                  choices = NULL, multiple = FALSE),
+      checkboxInput("showReg", "Add regression line", TRUE)
+    ),
+    
+    mainPanel(
+      tabsetPanel(
+        tabPanel("Scatter Plot", plotOutput("scatterPlot")),
+        tabPanel("Summary", verbatimTextOutput("summary")),
+        tabPanel("Data Table", DTOutput("table")),
+        tabPanel("Predict Age",
+                 h4("Input crab measurements:"),
+                 fluidRow(
+                   column(4, numericInput("Shucked", "Shucked Weight", value = NA)),
+                   column(4, numericInput("Height", "Height", value = NA)),
+                   column(4, numericInput("Diameter", "Diameter", value = NA))
+                 ),
+                 fluidRow(
+                   column(4, numericInput("Length", "Length", value = NA)),
+                   column(4, numericInput("Weight", "Weight", value = NA))
+                 ),
+                 br(),
+                 actionButton("predictBtn", "Estimate Age", icon = icon("magic")),
+                 br(), br(),
+                 verbatimTextOutput("agePrediction")
+        )
+      )
+    )
+  )
 )
 
-for (feature in features) {
-  cor_val <- cor(CrabTrain[[feature]], CrabTrain$Age)
-  cor_results <- rbind(cor_results, data.frame(
-    Feature = feature,
-    Correlation = cor_val
-  ))
+server <- function(input, output, session) {
+  #Load data
+  CrabTrain <- read.csv("Data/train-1.csv")
+  
+  #Select relevant features
+  feature_df <- CrabTrain %>%
+    select(Shucked.Weight, Height, Diameter, Length, Weight, Age)
+  
+  #Split for consistency with Model
+  trainIndex <- createDataPartition(feature_df$Age, p = 0.7, list = FALSE)
+  train_raw <- feature_df[trainIndex, ]
+  test_raw <- feature_df[-trainIndex, ]
+  
+  #Preprocess/standardize 
+  preproc <- preProcess(train_raw[, -6], method = c("center", "scale"))  # exclude Age
+  train_scaled <- predict(preproc, train_raw[, -6])
+  train_data <- cbind(train_scaled, Age = train_raw$Age)
+  
+  #Fit linear regression model
+  lm_model <- lm(Age ~ Shucked.Weight + Height + Diameter + Length + Weight, data = train_data)
+  
+  #Set variables for dropdown
+  compare_vars <- setdiff(names(CrabTrain), c("id", "Age", "Sex"))
+  display_names <- gsub("\\.", " ", compare_vars)
+  updatePickerInput(session, "xvar", choices = setNames(compare_vars, display_names))
+  
+  #Scatter plot
+  output$scatterPlot <- renderPlot({
+    req(input$xvar)
+    
+    p <- ggplot(CrabTrain, aes_string(x = "Age", y = input$xvar)) +
+      geom_point(alpha = 0.6, color = "#2c3e50") +
+      labs(title = paste("Age vs", input$xvar),
+           x = "Age",
+           y = input$xvar) +
+      theme_minimal()
+    
+    if (input$showReg) {
+      p <- p + geom_smooth(method = "lm", se = FALSE, color = "#e74c3c")
+    }
+    
+    p
+  })
+  
+  #Summary tab
+  output$summary <- renderPrint({
+    summary(CrabTrain[, !(names(CrabTrain) %in% c("id", "Sex"))])
+  })
+  
+  #Data table
+  output$table <- renderDT({
+    datatable(CrabTrain, options = list(pageLength = 10, scrollX = TRUE))
+  })
+  
+  #Age prediction
+  observeEvent(input$predictBtn, {
+    req(input$Shucked, input$Height, input$Diameter, input$Length, input$Weight)
+    
+    #User input to dataframe
+    new_input <- data.frame(
+      Shucked.Weight = input$Shucked,
+      Height         = input$Height,
+      Diameter       = input$Diameter,
+      Length         = input$Length,
+      Weight         = input$Weight
+    )
+    
+    #Apply training preprocessing
+    new_scaled <- predict(preproc, new_input)
+    
+    #Predict
+    pred <- predict(lm_model, newdata = new_scaled)
+    
+    output$agePrediction <- renderText({
+      if (pred < 0) {
+        "Estimated Age: < 0 (check input values)"
+      } else {
+        paste("Estimated Age:", round(pred, 2))
+      }
+    })
+  })
 }
 
-#Print
-print(cor_results)
-
-#Plotting
-#Shell Weight
-ggplot(CrabTrain, aes(x = Age, y = Shell.Weight)) +
-  geom_point() +
-  geom_smooth(method = "lm", se = TRUE, color = "blue")
-
-#Height
-ggplot(CrabTrain, aes(x = Age, y = Height)) +
-  geom_point() +
-  geom_smooth(method = "lm", se = TRUE, color = "blue")
-
-#Diameter
-ggplot(CrabTrain, aes(x = Age, y = Diameter)) +
-  geom_point() +
-  geom_smooth(method = "lm", se = TRUE, color = "blue")
-
-#Length
-ggplot(CrabTrain, aes(x = Age, y = Length)) +
-  geom_point() +
-  geom_smooth(method = "lm", se = TRUE, color = "blue")
-
-#Model Creation
-set.seed(7)
-#KNN
-feature_df <- CrabTrain %>%
-  select(Shell.Weight, Height, Diameter, Length, Weight, Age)
-
-#Standardize
-feature_df_scaled <- feature_df %>% mutate(across(where(is.numeric), scale))
-
-#Train-Test
-trainIndex <- createDataPartition(feature_df_scaled$Age, p = 0.7, list = FALSE)
-train_data <- feature_df_scaled[trainIndex, ]
-test_data <- feature_df_scaled[-trainIndex, ]
-
-train_x <- train_data %>% select(-Age)
-train_y <- train_data$Age
-test_x <- test_data %>% select(-Age)
-test_y <- test_data$Age
-
-#KNN Regression
-final_knn <- knn.reg(train = train_x, test = test_x, y = train_y, k = 34)
-
-#Predicted ages
-predicted_ages <- final_knn$pred
-
-#Actual ages
-actual_ages <- test_y
-
-#Evaluation
-rmse <- sqrt(mean((predicted_ages - actual_ages)^2))
-mae <- mean(abs(predicted_ages - actual_ages))
-sst <- sum((actual_ages - mean(actual_ages))^2)
-sse <- sum((predicted_ages - actual_ages)^2)
-r_squared <- 1 - (sse / sst)
-
-#Results
-cat("RMSE:",rmse, "\n")
-cat("MAE:",mae, "\n")
-cat("R-squared:",r_squared, "\n")
-
-#Linear Regression Model
-lm_model <- lm(Age ~ Shell.Weight + Height + Diameter + Length + Weight, data = train_data)
-
-#Predict
-lm_pred <- predict(lm_model, newdata = test_data)
-
-#Evaluation 
-lm_rmse <- sqrt(mean((lm_pred - test_y)^2))
-lm_mae <- mean(abs(lm_pred - test_y))
-lm_sst <- sum((test_y - mean(test_y))^2)
-lm_sse <- sum((lm_pred - test_y)^2)
-lm_r_squared <- 1 - (lm_sse / lm_sst)
-
-#Results
-cat("RMSE:",lm_rmse, "\n")
-cat("MAE:",lm_mae, "\n")
-cat("R-squared:",lm_r_squared, "\n")
-
+shinyApp(ui, server)
