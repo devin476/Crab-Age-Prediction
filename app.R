@@ -77,7 +77,6 @@ server <- function(input, output, session) {
   #Split for consistency with Model
   trainIndex <- createDataPartition(feature_df$Age, p = 0.7, list = FALSE)
   train_raw <- feature_df[trainIndex, ]
-  test_raw <- feature_df[-trainIndex, ]
   
   #Preprocess/standardize 
   preproc <- preProcess(train_raw[, -6], method = c("center", "scale"))  # exclude Age
