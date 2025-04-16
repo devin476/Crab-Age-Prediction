@@ -58,8 +58,14 @@ To install all required packages:
 ```r
 install.packages(c("tidyverse", "caret", "Metrics", "class", "FNN"))
 ```
+## Live App
 
-## 👤 Authors
+Check out the interactive RShiny application here:  
+[Crab Age Prediction RShiny App](https://devin476.shinyapps.io/Crab-Age-Prediction/)
+
+This app allows users to explore the crab dataset visually and make predictions based on selected features.
+
+## Authors
 
 - [Titus Karuri](https://github.com/titusk2)
 
