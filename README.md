@@ -61,9 +61,7 @@ install.packages(c("tidyverse", "caret", "Metrics", "class", "FNN"))
 
 ## 👤 Authors
 
-- **Titus Karuri**  
-  [GitHub Profile](https://github.com/titusk2)
+- [Titus Karuri](https://github.com/titusk2)
 
-- **Devin Streeter**  
-  [GitHub Profile](https://github.com/devin476)
+- [Devin Streeter](https://github.com/devin476)
 ---
