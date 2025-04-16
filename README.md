@@ -59,11 +59,11 @@ To install all required packages:
 install.packages(c("tidyverse", "caret", "Metrics", "class", "FNN"))
 ```
 
-## 👤 Author
+## 👤 Authors
 
-**Titus Karuri**
-[Github Profile](https://github.com/titusk2)
-**Devin Streeter**  
-[GitHub Profile](https://github.com/devin476)
+- **Titus Karuri**  
+  [GitHub Profile](https://github.com/titusk2)
 
+- **Devin Streeter**  
+  [GitHub Profile](https://github.com/devin476)
 ---
