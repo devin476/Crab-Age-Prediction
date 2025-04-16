@@ -1,0 +1,105 @@
+---
+title: "Crab Age Prediction EDA"
+author: "Devin Streeter, Titus Karuri"
+date: "`r Sys.Date()`"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(class)
+library(caret)
+library(FNN)
+library(Metrics)
+```
+
+## Load Data
+```{r load-data}
+CrabTrain <- read.csv("Data/train-1.csv")
+```
+
+#Exploratory Data Analysis (EDA)
+
+#Data Overview
+```{r overview}
+str(CrabTrain)
+summary(CrabTrain)
+```
+
+#Correlation with Age
+```{r correlation}
+features <- CrabTrain %>% 
+  select(where(is.numeric), -id) %>%
+  colnames()
+
+cor_results <- data.frame(Feature = character(), Correlation = numeric())
+
+for (feature in features) {
+  cor_val <- cor(CrabTrain[[feature]], CrabTrain$Age)
+  cor_results <- rbind(cor_results, data.frame(Feature = feature, Correlation = cor_val))
+}
+
+cor_results <- cor_results %>% arrange(desc(abs(Correlation)))
+print(cor_results)
+```
+
+#Distribution of Age
+```{r age-distribution}
+ggplot(CrabTrain, aes(x = Age)) +
+  geom_histogram(bins = 20, fill = "blue", color = "black") +
+  labs(title = "Distribution of Crab Age")
+```
+
+#Scatterplots of Features vs. Age
+```{r scatterplots}
+plot_list <- c("Shucked.Weight", "Height", "Diameter", "Length", "Weight", "Shell.Weight", "Viscera.Weight")
+
+for (var in plot_list) {
+  print(
+ggplot(CrabTrain, aes(x = Age, y = !!sym(var))) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = TRUE, color = "blue") +
+  labs(title = paste(var, "vs Age"))
+  )
+}
+```
+
+#Feature Selection and Standardization
+```{r standardization}
+feature_df <- CrabTrain %>%
+  select(Shucked.Weight, Height, Diameter, Length, Weight, Age)
+
+feature_df_scaled <- feature_df %>% mutate(across(where(is.numeric), scale))
+```
+
+#Train-Test Split
+```{r split}
+set.seed(7)
+trainIndex <- createDataPartition(feature_df_scaled$Age, p = 0.7, list = FALSE)
+train_data <- feature_df_scaled[trainIndex, ]
+test_data <- feature_df_scaled[-trainIndex, ]
+```
+
+#Linear Regression Model
+```{r lm-model}
+lm_model <- lm(Age ~ Shucked.Weight + Height + Diameter + Length + Weight, data = train_data)
+summary(lm_model)
+```
+
+#Model Evaluation
+```{r evaluation}
+lm_pred <- predict(lm_model, newdata = test_data)
+mae_score <- mae(test_data$Age, lm_pred)
+cat("Mean Absolute Error (MAE):",mae_score)
+```
+
+#Residual Plot
+```{r residuals}
+residuals <- test_data$Age - lm_pred
+
+ggplot(data.frame(Predicted = lm_pred, Residuals = residuals), aes(x = Predicted, y = Residuals)) +
+  geom_point(color = "black") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals vs Predicted Age", x = "Predicted Age", y = "Residuals")
+```
