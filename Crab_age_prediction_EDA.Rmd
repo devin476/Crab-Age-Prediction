@@ -94,12 +94,36 @@ mae_score <- mae(test_data$Age, lm_pred)
 cat("Mean Absolute Error (MAE):",mae_score)
 ```
 
+#Backtransformation for Visualisation
+```{r backtransformation}
+actual_age <- CrabTrain[-trainIndex, "Age"]
+
+#Original mean and sd
+age_mean <- mean(CrabTrain[trainIndex, "Age"])
+age_sd   <- sd(CrabTrain[trainIndex, "Age"])
+
+#z-scores to real values
+predicted_age <- lm_pred * age_sd + age_mean
+
+#Combine
+df_compare <- data.frame(Actual = actual_age,Predicted = predicted_age) %>%
+  pivot_longer(cols = everything(), names_to = "Type", values_to = "Age")
+```
+
+#Results Density Plot
+```{r density plot}
+ggplot(df_compare, aes(x = Age, fill = Type)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Actual vs Predicted Age")
+```
+
 #Residual Plot
 ```{r residuals}
-residuals <- test_data$Age - lm_pred
+residuals_unscaled <- actual_age - predicted_age
 
-ggplot(data.frame(Predicted = lm_pred, Residuals = residuals), aes(x = Predicted, y = Residuals)) +
-  geom_point(color = "black") +
+ggplot(data.frame(Predicted = predicted_age, Residuals = residuals_unscaled),
+       aes(x = Predicted, y = Residuals)) +
+  geom_point(color = "black", alpha = 0.6) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-  labs(title = "Residuals vs Predicted Age", x = "Predicted Age", y = "Residuals")
+  labs(title = "Residuals vs Predicted Age",x = "Predicted Age", y = "Residuals")
 ```
